@@ -6,6 +6,7 @@ import os
 
 EXCEL_FILE = "student_scores.xlsx"
 
+# Ensure the Excel file exists with correct headers
 def create_or_load_workbook():
     if not os.path.exists(EXCEL_FILE):
         workbook = openpyxl.Workbook()
@@ -15,18 +16,52 @@ def create_or_load_workbook():
         workbook.save(EXCEL_FILE)
     return openpyxl.load_workbook(EXCEL_FILE)
 
+# Add student score, determine pass/fail, and calculate average
 def add_student_score(name, score):
     workbook = create_or_load_workbook()
     sheet = workbook["Scores"]
+
+    # Remove previous "Average Score" row if it exists
+    for row in sheet.iter_rows():
+        if row[0].value == "Average Score":
+            sheet.delete_rows(row[0].row, 1)
+            break
+
+    # Add student entry
     status = "Pass" if score >= 75 else "Fail"
     sheet.append([name, score, status])
-    workbook.save(EXCEL_FILE)
+    
+    # Recalculate and append average score
+    scores = [
+        row[1].value for row in sheet.iter_rows(min_row=2, max_col=2)
+        if isinstance(row[1].value, (int, float))
+    ]
+    if scores:
+        avg_score = sum(scores) / len(scores)
+        sheet.append(["Average Score", round(avg_score, 2), ""])
+    
+    workbook.save(EXCEL_FILE)   
 
+# Get all student records (exclude "Average Score" row)
 def get_all_records():
     workbook = create_or_load_workbook()
     sheet = workbook["Scores"]
-    return list(sheet.iter_rows(min_row=2, values_only=True))
+    records = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        if row[0] != "Average Score":
+            records.append(row)
+    return records
 
+# Get average score (read from Excel)
+def get_average_score():
+    workbook = create_or_load_workbook()
+    sheet = workbook["Scores"]
+    for row in sheet.iter_rows(values_only=True):
+        if row[0] == "Average Score":
+            return row[1]
+    return None
+
+# Submit new score via GUI
 def submit_score():
     name = entry_name.get()
     try:
@@ -41,19 +76,28 @@ def submit_score():
             entry_score.delete(0, tk.END)
             refresh_records()
         else:
-            messagebox.showwarning("Input Error", "Score must be betwee 0 and 100.")
+            messagebox.showwarning("Input Error", "Score must be between 0 and 100.")
     except ValueError:
-        messagebox.showwarning("Input Error", "Please eter a valid integer for the score.")
+        messagebox.showwarning("Input Error", "Please enter a valid integer for the score.")
 
+# Refresh display table and average
 def refresh_records():
     for row in tree.get_children():
         tree.delete(row)
     for record in get_all_records():
         tree.insert("", tk.END, values=record)
 
+    avg = get_average_score()
+    if avg is not None:
+        label_avg.config(text=f"Average Score: {avg}")
+    else:
+        label_avg.config(text="Average Score: N/A")
+
+# GUI Layout
 root = tk.Tk()
 root.title("Student Score Tracker")
 
+# Input Frame
 frame_input = tk.Frame(root, padx=10, pady=10)
 frame_input.pack()
 
@@ -68,6 +112,7 @@ entry_score.grid(row=1, column=1, padx=5, pady=5)
 btn_submit = tk.Button(frame_input, text="Submit Score", command=submit_score)
 btn_submit.grid(row=2, column=0, columnspan=2, pady=10)
 
+# Record Display Frame
 frame_display = tk.Frame(root, padx=10, pady=10)
 frame_display.pack()
 
@@ -77,6 +122,11 @@ tree.heading("Score", text="Score")
 tree.heading("Status", text="Status")
 tree.pack()
 
+# Average Score Label
+label_avg = tk.Label(root, text="Average Score: N/A", font=("Arial", 12, "bold"))
+label_avg.pack(pady=10)
+
+# Initialize record view
 refresh_records()
 
 root.mainloop()
