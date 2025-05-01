@@ -1,9 +1,11 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import ttk
 import openpyxl
 import os
 
 EXCEL_FILE = "student_scores.xlsx"
 
-# Step 1: Create or load the workbook and sheet
 def create_or_load_workbook():
     if not os.path.exists(EXCEL_FILE):
         workbook = openpyxl.Workbook()
@@ -11,10 +13,7 @@ def create_or_load_workbook():
         sheet.title = "Scores"
         sheet.append(["Student Name", "Score", "Status"])
         workbook.save(EXCEL_FILE)
-    else:
-        workbook = openpyxl.load_workbook(EXCEL_FILE)
-    return workbook
-
+    return openpyxl.load_workbook(EXCEL_FILE)
 
 def add_student_score(name, score):
     workbook = create_or_load_workbook()
@@ -22,45 +21,62 @@ def add_student_score(name, score):
     status = "Pass" if score >= 75 else "Fail"
     sheet.append([name, score, status])
     workbook.save(EXCEL_FILE)
-    print(f"Added: {name} - {score} ({status})")
 
-# Step 4: Retrieve and display all records
-def display_all_records():
+def get_all_records():
     workbook = create_or_load_workbook()
     sheet = workbook["Scores"]
-    print("\nAll Student Records:")
-    for row in sheet.iter_rows(min_row=2, values_only=True):
-        print(f"Name: {row[0]}, Score: {row[1]}, Status: {row[2]}")
+    return list(sheet.iter_rows(min_row=2, values_only=True))
 
-# Main logic
-def main():
-    while True:
-        print("\n--- Student Score Tracker ---")
-        print("1. Add Student Score")
-        print("2. Show All Records")
-        print("3. Exit")
-        choice = input("Enter choice (1/2/3): ")
-
-        if choice == "1":
-            name = input("Enter student name: ")
-            try:
-                score = int(input("Enter score (0-100): "))
-                if 0 <= score <= 100:
-                    add_student_score(name, score)
-                else:
-                    print("Score must be between 0 and 100.")
-            except ValueError:
-                print("Invalid input. Please enter a number.")
-        elif choice == "2":
-            display_all_records()
-        elif choice == "3":
-            print("Exiting program.")
-            break
+def submit_score():
+    name = entry_name.get()
+    try:
+        score = int(entry_score.get())
+        if not name:
+            messagebox.showwarning("Input Error", "Please enter a student name.")
+            return
+        if 0 <= score <= 100:
+            add_student_score(name, score)
+            messagebox.showinfo("Success", f"{name}'s score saved.")
+            entry_name.delete(0, tk.END)
+            entry_score.delete(0, tk.END)
+            refresh_records()
         else:
-            print("Invalid choice. Try again.")
+            messagebox.showwarning("Input Error", "Score must be betwee 0 and 100.")
+    except ValueError:
+        messagebox.showwarning("Input Error", "Please eter a valid integer for the score.")
 
-if __name__ == "__main__":
-    main()
+def refresh_records():
+    for row in tree.get_children():
+        tree.delete(row)
+    for record in get_all_records():
+        tree.insert("", tk.END, values=record)
 
+root = tk.Tk()
+root.title("Student Score Tracker")
 
-#updaedd
+frame_input = tk.Frame(root, padx=10, pady=10)
+frame_input.pack()
+
+tk.Label(frame_input, text="Student Name:").grid(row=0, column=0, padx=5, pady=5)
+entry_name = tk.Entry(frame_input)
+entry_name.grid(row=0, column=1, padx=5, pady=5)
+
+tk.Label(frame_input, text="Score:").grid(row=1, column=0, padx=5, pady=5)
+entry_score = tk.Entry(frame_input)
+entry_score.grid(row=1, column=1, padx=5, pady=5)
+
+btn_submit = tk.Button(frame_input, text="Submit Score", command=submit_score)
+btn_submit.grid(row=2, column=0, columnspan=2, pady=10)
+
+frame_display = tk.Frame(root, padx=10, pady=10)
+frame_display.pack()
+
+tree = ttk.Treeview(frame_display, columns=("Name", "Score", "Status"), show="headings")
+tree.heading("Name", text="Student Name")
+tree.heading("Score", text="Score")
+tree.heading("Status", text="Status")
+tree.pack()
+
+refresh_records()
+
+root.mainloop()
