@@ -15,7 +15,7 @@ def create_or_load_workbook():
         workbook = openpyxl.load_workbook(EXCEL_FILE)
     return workbook
 
-# Step 2: Add student data and calculate pass/fail
+
 def add_student_score(name, score):
     workbook = create_or_load_workbook()
     sheet = workbook["Scores"]
